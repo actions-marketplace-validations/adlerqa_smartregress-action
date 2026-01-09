@@ -1,0 +1,22 @@
+name: "SmartRegress"
+description: "AI-powered regression analysis for Pull Requests"
+
+inputs:
+  pr-number:
+    description: "The Pull Request number to analyze"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install SmartRegress CLI
+      shell: bash
+      run: npm install -g smartregress-cli
+
+    - name: Run SmartRegress on PR
+      shell: bash
+      run: smartregress analyze --pr ${{ inputs.pr-number }}
+
+branding:
+  icon: "check"
+  color: "blue"
