@@ -1,22 +1,56 @@
-name: "SmartRegress"
-description: "AI-powered regression analysis for Pull Requests"
+name: SmartRegress PR Analyzer
+description: Run SmartRegress CLI on a PR and generate summary.md + results.json
 
 inputs:
-  pr-number:
-    description: "The Pull Request number to analyze"
+  repo:
+    description: "Repo in owner/name format. If empty, defaults to the current repo."
+    required: false
+    default: ""
+
+  pr_number:
+    description: "PR number to analyze."
     required: true
 
+  output_dir:
+    description: "Directory to save the analysis output."
+    required: false
+    default: "./out"
+
+  openai_api_key:
+    description: "OpenAI API key (BYOK)."
+    required: true
+
+  model:
+    description: "OpenAI model name (e.g., gpt-4o-mini)."
+    required: false
+    default: "gpt-4o-mini"
+
+  github_token:
+    description: "GitHub token (needed for private repos / higher rate limits / commenting)."
+    required: false
+    default: ""
+
+  comment_on_pr:
+    description: "If true, posts summary.md as a PR comment."
+    required: false
+    default: "true"
+
+  cli_repo:
+    description: "SmartRegress CLI repo to clone (owner/name)."
+    required: false
+    default: "adlerqa/smartregress-cli"
+
+  cli_ref:
+    description: "Branch/tag/SHA to use for the CLI."
+    required: false
+    default: "main"
+
+outputs:
+  summary_path:
+    description: "Path to generated summary.md"
+  results_path:
+    description: "Path to generated results.json"
+
 runs:
-  using: "composite"
-  steps:
-    - name: Install SmartRegress CLI
-      shell: bash
-      run: npm install -g smartregress-cli
-
-    - name: Run SmartRegress on PR
-      shell: bash
-      run: smartregress analyze --pr ${{ inputs.pr-number }}
-
-branding:
-  icon: "check"
-  color: "blue"
+  using: "node20"
+  main: "index.js"
