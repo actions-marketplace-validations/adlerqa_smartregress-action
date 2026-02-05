@@ -1,56 +1,105 @@
-name: SmartRegress PR Analyzer
-description: Run SmartRegress CLI on a PR and generate summary.md + results.json
+name: "SmartRegress"
+description: "AI-powered regression test selection for GitHub Pull Requests"
 
 inputs:
   repo:
-    description: "Repo in owner/name format. If empty, defaults to the current repo."
+    description: "Repository to analyze (owner/repo). Defaults to current repository."
     required: false
-    default: ""
 
-  pr_number:
-    description: "PR number to analyze."
+  pr-number:
+    description: "Pull Request number to analyze"
     required: true
 
-  output_dir:
-    description: "Directory to save the analysis output."
+  test-repo:
+    description: "External test repository (owner/repo@branch). Supports multiple (comma-separated)."
     required: false
-    default: "./out"
 
-  openai_api_key:
-    description: "OpenAI API key (BYOK)."
-    required: true
+  test-roots:
+    description: "Test root folders (comma-separated)."
+    required: false
+
+  pat:
+    description: "GitHub Personal Access Token for SmartRegress"
+    required: false
 
   model:
-    description: "OpenAI model name (e.g., gpt-4o-mini)."
+    description: "LLM Model to use (gpt-4o-mini, claude-haiku, gemini-pro)"
     required: false
-    default: "gpt-4o-mini"
 
-  github_token:
-    description: "GitHub token (needed for private repos / higher rate limits / commenting)."
+  out:
+    description: "Output directory for JSON/Markdown results"
     required: false
-    default: ""
 
-  comment_on_pr:
-    description: "If true, posts summary.md as a PR comment."
+  debug:
+    description: "Enable debug mode (true/false)"
     required: false
-    default: "true"
-
-  cli_repo:
-    description: "SmartRegress CLI repo to clone (owner/name)."
-    required: false
-    default: "adlerqa/smartregress-cli"
-
-  cli_ref:
-    description: "Branch/tag/SHA to use for the CLI."
-    required: false
-    default: "main"
-
-outputs:
-  summary_path:
-    description: "Path to generated summary.md"
-  results_path:
-    description: "Path to generated results.json"
+    default: "false"
 
 runs:
-  using: "node20"
-  main: "index.js"
+  using: "composite"
+  steps:
+    - name: Install SmartRegress CLI
+      shell: bash
+      run: npm install -g smartregress
+
+    - name: Prepare CLI Command
+      id: build
+      shell: bash
+      run: |
+        CMD="smartregress analyze"
+
+        # Repo (optional) → defaults to current repo
+        if [ -n "${{ inputs.repo }}" ]; then
+          CMD="$CMD ${{ inputs.repo }}"
+        else
+          CMD="$CMD $GITHUB_REPOSITORY"
+        fi
+
+        # PR number
+        CMD="$CMD ${{ inputs['pr-number'] }}"
+
+        # Test repos
+        if [ -n "${{ inputs['test-repo'] }}" ]; then
+          IFS=',' read -ra repos <<< "${{ inputs['test-repo'] }}"
+          for r in "${repos[@]}"; do
+            CMD="$CMD --test-repo $r"
+          done
+        fi
+
+        # Test roots
+        if [ -n "${{ inputs['test-roots'] }}" ]; then
+          IFS=',' read -ra roots <<< "${{ inputs['test-roots'] }}"
+          for t in "${roots[@]}"; do
+            CMD="$CMD --test-roots $t"
+          done
+        fi
+
+        # PAT
+        if [ -n "${{ inputs.pat }}" ]; then
+          CMD="$CMD --pat ${{ inputs.pat }}"
+        fi
+
+        # Model
+        if [ -n "${{ inputs.model }}" ]; then
+          CMD="$CMD --model ${{ inputs.model }}"
+        fi
+
+        # Output directory
+        if [ -n "${{ inputs.out }}" ]; then
+          CMD="$CMD --out ${{ inputs.out }}"
+        fi
+
+        # Debug flag
+        if [ "${{ inputs.debug }}" = "true" ]; then
+          CMD="$CMD --debug"
+        fi
+
+        echo "command=$CMD" >> $GITHUB_OUTPUT
+
+    - name: Run SmartRegress on PR
+      shell: bash
+      run: ${{ steps.build.outputs.command }}
+
+branding:
+  icon: "check"
+  color: "blue"
